@@ -88,6 +88,12 @@ BookReader.prototype.setup = function(options) {
   /** Overriden by plugin.search.js */
   this.enableSearch = false;
 
+  /**
+   * Used to supress fragment change for init with canonical URLs
+   * @var {boolean}
+   */
+  this.suppressFragmentChange = false;
+
   /** @type {function(): void} */
   this.animationFinishedCallback = null;
 
@@ -296,6 +302,9 @@ BookReader.prototype.initParams = function() {
     }
   }
 
+  // Set for init process, return to false at end of init()
+  this.suppressFragmentChange = !params.fragmentChange;
+
   return params;
 }
 
@@ -409,6 +418,9 @@ BookReader.prototype.init = function() {
   }
 
   this.trigger(BookReader.eventNames.PostInit);
+
+  // Return to default
+  // this.suppressFragmentChange = false;
 
   this.init.initComplete = true;
 }
@@ -636,6 +648,9 @@ BookReader.prototype.bindGestures = function(jElement) {
   });
 };
 
+/**
+ * @param {object} [options]
+ */
 BookReader.prototype.drawLeafsOnePage = function() {
   const { book } = this._models;
   const containerHeight = this.refs.$brContainer.height();
@@ -1428,17 +1443,15 @@ BookReader.prototype.getPrevReadMode = function(mode) {
 /**
  * Switches the mode (eg 1up 2up thumb)
  * @param {number}
- * @param {object}
+ * @param {object} [options]
+ * @param {boolean} [options.suppressFragmentChange = false]
  */
-BookReader.prototype.switchMode = function(mode, options = {}) {
-  // Set configuration, options overriding defaults
-  const {
-    init = false,
-    suppressFragmentChange = false,
-  } = options;
-
-  // Skip checks when init()
-  if (!init) {
+BookReader.prototype.switchMode = function(
+  mode,
+  { suppressFragmentChange = false } = {}
+) {
+  // Skip checks before init() complete
+  if (this.init.initComplete) {
     if (mode === this.mode) {
       return;
     }
@@ -1479,7 +1492,7 @@ BookReader.prototype.switchMode = function(mode, options = {}) {
     this.twoPageCenterView(0.5, 0.5); // $$$ TODO preserve center
   }
 
-  if (!suppressFragmentChange) {
+  if (!(this.suppressFragmentChange || suppressFragmentChange)) {
     this.trigger(BookReader.eventNames.fragmentChange);
   }
   var eventName = mode + 'PageViewSelected';
@@ -1672,11 +1685,14 @@ BookReader.prototype.currentIndex = function() {
  * Also triggers an event and updates the navbar slider position
  * @param {number} index
  * @param {object} [options]
- * @param {boolean} [suppressFragmentChange]
+ * @param {boolean} [options.suppressFragmentChange = false]
  */
-BookReader.prototype.updateFirstIndex = function(index, options) {
+BookReader.prototype.updateFirstIndex = function(
+  index,
+  { suppressFragmentChange = false } = {}
+) {
   this.firstIndex = index;
-  if (!options || options.suppressFragmentChange === false) {
+  if (!(this.suppressFragmentChange || suppressFragmentChange)) {
     this.trigger(BookReader.eventNames.fragmentChange);
   }
   this.updateNavIndexThrottled(index);
